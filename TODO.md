@@ -1,14 +1,21 @@
 
 - 🚩 Validation
   - 🟢 Object property validation
+  - 🟡🧠 schema-block is problematic for e.g. JSON annotations. Is it needed?
+  - 🟡🧠 Change Hash to NamedTuple?
   - 🟡 Predefined validations
-    - 🟡 `size` (range, array, proc)
+    - 🟡🧠 How to unify `range/min/max/gt/gte/lt/lte/eq`
+    - 🟡 `size` (range, array, gt/gte/lt/lte, proc)
     - 🟡🧠 `range:/blacklist:/whitelist:` vs `in:/not_in:`
     - 🟡 `range` (range, array, proc)
+    - 🟡 `min/max`, `gt/gte/lt/lte`
     - 🟡 `blacklist` (range, array, proc)
     - 🟡 `format` (regex, proc, predefined (email, ip, ...))
-    - 🟡 `filled` non-empty (string, array, map)
+    - 🟡 `empty/non_empty` (string, enumerable)
+    - 🟡 Conditionals `if/unless`
+    - 🟡 Groups
   - 🟡 Nested objects validation
+    - 🟡🧠 Default validator? Specify validator for each property? Array(T)?
     - 🟡 validated objects
     - 🟡 stdlib objects: Enumerable
   - 🟡 Cross-property validations
