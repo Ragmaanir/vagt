@@ -19,15 +19,6 @@ module Vagt
     end
   end
 
-  # class NestedViolations(T) < Violation
-  #   getter value : T
-  #   getter violations : Hash(String, Array(Violation))
-
-  #   def initialize(@value, @violations)
-  #     @name = "nested"
-  #   end
-  # end
-
   class NestedViolations(T) < Violation
     getter value : T
     getter result : ValidationResult

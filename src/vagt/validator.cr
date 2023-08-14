@@ -1,3 +1,5 @@
+require "./violation"
+require "./validation_result"
 require "./validated"
 
 module Vagt::Validator(T)
@@ -45,17 +47,6 @@ module Vagt::Validator(T)
 
         {% name, type, opts = T::FIELDS[prop.id.stringify] %}
 
-        # if value.is_a?(Vagt::Validated)
-        #   {% if w = options[:with] %}
-        #     val = {{w}}.new
-        #   {% else %}
-        #     val = value.class.default_validator.new
-        #   {% end %}
-
-        #   return val.call(value)
-        # else
-        # end
-
         res = [] of Vagt::Violation
 
         {% if fmt = options[:format] %}
@@ -66,16 +57,12 @@ module Vagt::Validator(T)
         {% end %}
 
         {% if size = options[:size] %}
-          # { %
-          #   if size.is_a?(Expressions)
-          #     raise "#{@type}: Expression too complicated (#{size})" if size.expressions.size > 1
-          #     size = size.expressions.first
-          #   end
-          # % }
+          size = ({{size}})
+
           {% if size.is_a?(ProcLiteral) %}
-            res << Vagt::PropertyViolation.new(value, "size") if !{{size}}.call(value.size)
+            res << Vagt::PropertyViolation.new(value, "size") if !size.call(value.size)
           {% elsif size.is_a?(RangeLiteral) || size.is_a?(ArrayLiteral) || size.is_a?(Expressions) %}
-            res << Vagt::PropertyViolation.new(value, "size") if !({{size}}).includes?(value.size)
+            res << Vagt::PropertyViolation.new(value, "size") if !size.includes?(value.size)
           {% else %}
             {% raise "#{@type}: Invalid size option: #{size} (#{size.class_name})" %}
           {% end %}
@@ -86,10 +73,12 @@ module Vagt::Validator(T)
         {% end %}
 
         {% if l = options[:blacklist] %}
+          l = ({{l}})
+
           {% if l.is_a?(ProcLiteral) %}
-            res << Vagt::PropertyViolation.new(value, "blacklist") if ({{l}}).call(value)
+            res << Vagt::PropertyViolation.new(value, "blacklist") if l.call(value)
           {% else %}
-            res << Vagt::PropertyViolation.new(value, "blacklist") if ({{l}}).includes?(value)
+            res << Vagt::PropertyViolation.new(value, "blacklist") if l.includes?(value)
           {% end %}
         {% end %}
 
@@ -116,7 +105,10 @@ module Vagt::Validator(T)
     {% verbatim do %}
       macro finished
         {% verbatim do %}
-          # Hash(String, Array(Vagt::Violation))
+          def self.call(o : T) : Vagt::ValidationResult
+            new.call(o)
+          end
+
           def call(o : T) : Vagt::ValidationResult
             {% begin %}
               {%
@@ -139,7 +131,6 @@ module Vagt::Validator(T)
               {% end %}
 
               Vagt::ValidationResult.new(violations)
-              # violations
             {% end %}
           end
         {% end %}

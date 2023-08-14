@@ -1,6 +1,4 @@
 class Vagt::ValidationResult
-  # alias Violations = Hash(String, Array(Violation) | Violations)
-
   getter violations : Hash(String, Array(Violation))
 
   delegate :[], :[]?, :has_key?, to: violations
@@ -14,6 +12,5 @@ class Vagt::ValidationResult
 
   def errors?
     !violations.empty?
-    # violations.any? { |k, arr|  }
   end
 end
