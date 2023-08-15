@@ -2,7 +2,6 @@ require "./spec_helper"
 
 describe Vagt::PropertyValidations do
   class User
-    include JSON::Serializable
     include Vagt::Validated
 
     schema do
@@ -31,45 +30,36 @@ describe Vagt::PropertyValidations do
   end
 
   test "valid" do
-    r = V.call(User.from_json(%[{"name": "Toby", "age": 16}]))
+    e = V.call(build_user)
 
-    assert r.valid?
-    assert r.violations.empty?
+    assert e == nil
   end
 
   test "name blacklisted" do
-    r = V.call(build_user("Admin"))
+    e = V.call(build_user("Admin")) || fail
 
-    assert !r.valid?
-
-    assert r["name"].map(&.name) == ["blacklist"]
-    assert !r.has_key?("age")
+    assert e["name"].as(PropertyNode).errors.map(&.name) == ["blacklist"]
+    assert !e.has_key?("age")
   end
 
   test "name format invalid" do
-    r = V.call(build_user("t0b1"))
+    e = V.call(build_user("t0b1")) || fail
 
-    assert !r.valid?
-
-    assert r["name"].map(&.name) == ["format"]
-    assert !r.has_key?("age")
+    assert e["name"].as(PropertyNode).errors.map(&.name) == ["format"]
+    assert !e.has_key?("age")
   end
 
   test "name size invalid" do
-    r = V.call(build_user("T"))
+    e = V.call(build_user("T")) || fail
 
-    assert !r.valid?
-
-    assert r["name"].map(&.name) == ["size"]
-    assert !r.has_key?("age")
+    assert e["name"].as(PropertyNode).errors.map(&.name) == ["size"]
+    assert !e.has_key?("age")
   end
 
   test "age range invalid" do
-    r = V.call(build_user(age: -1))
+    e = V.call(build_user(age: -1)) || fail
 
-    assert !r.valid?
-
-    assert !r.has_key?("name")
-    assert r["age"].map(&.name) == ["range"]
+    assert !e.has_key?("name")
+    assert e["age"].as(PropertyNode).errors.map(&.name) == ["range"]
   end
 end

@@ -47,22 +47,18 @@ describe Vagt do
 
     r = v.call(e)
 
-    assert r.valid?
-
-    assert r.violations.empty?
+    assert r == nil
   end
 
   test "invalid" do
     e = Example.from_json(%[{"name": "Admin", "age": 16, "item": {"name": ""}}])
     v = ExampleValidator.new
 
-    r = v.call(e)
+    r = v.call(e) || fail
 
-    assert !r.valid?
-
-    assert r["name"].map(&.name) == ["blacklist"]
+    assert r["name"].as(Vagt::PropertyNode).errors.map(&.name) == ["blacklist"]
     assert !r.has_key?("age")
-    assert r["item"].map(&.name) == ["nested"] of String
+    assert r["item"].as(Vagt::ObjectNode).nested_errors["name"].as(Vagt::PropertyNode).errors.map(&.name) == ["format"] of String
   end
 end
 
