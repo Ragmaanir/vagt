@@ -56,26 +56,8 @@ describe Vagt do
 
     r = v.call(e) || fail
 
-    assert r["name"].as(Vagt::PropertyNode).errors.map(&.name) == ["blacklist"]
+    assert r["name"].map(&.name) == ["blacklist"]
     assert !r.has_key?("age")
-    assert r["item"].as(Vagt::ObjectNode).nested_errors["name"].as(Vagt::PropertyNode).errors.map(&.name) == ["format"] of String
+    assert r["item"][0].as(Vagt::ObjectError).errors["name"].map(&.name) == ["format"] of String
   end
 end
-
-# getter item : Item
-# getter items : Array(Item)
-# => Array(ValidationResult) ?
-# getter items : Array(String)
-# => Array(Array(Violation)) ?
-
-# getter thing : String
-# => [Violation]
-
-# getter things : Array(String)
-# => [[Violation], [Violation]
-
-# getter item : Item
-# => [Violation(Nested)]
-
-# getter items : Array(Items)
-# => [[Violation(Nested)], [Violation(Nested)]]

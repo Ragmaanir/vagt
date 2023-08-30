@@ -1,41 +1,33 @@
 module Vagt
   class Error
+    include JSON::Serializable
+
     alias Attr = String | Int32 | Bool
 
     getter name : String
     getter attributes : Hash(String, Attr)
 
-    # getter value
-
-    def initialize(value : _, @name, @attributes = {} of String => Attr)
+    def initialize(@name, @attributes = {} of String => Attr)
     end
   end
 
-  abstract class Node
-    getter errors : Array(Error)
+  class ObjectError < Error
+    getter errors : Hash(String, Array(Error))
+
+    delegate :[], :[]?, :has_key?, to: errors
 
     def initialize(@errors)
+      super("object_invalid")
     end
   end
 
-  class PropertyNode < Node
-  end
+  class ArrayError < Error
+    getter errors : Hash(Int32, ObjectError | Array(Error))
 
-  class ObjectNode < PropertyNode
-    getter nested_errors : Hash(String, Node)
+    delegate :[], :[]?, :has_key?, to: errors
 
-    delegate :[], :[]?, :has_key?, to: nested_errors
-
-    def initialize(@errors, @nested_errors)
-    end
-  end
-
-  class ArrayNode < PropertyNode
-    getter nested_errors : Hash(Int32, Node)
-
-    delegate :[], :[]?, :has_key?, to: nested_errors
-
-    def initialize(@errors, @nested_errors)
+    def initialize(@errors)
+      super("array_invalid")
     end
   end
 end

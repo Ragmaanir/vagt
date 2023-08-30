@@ -38,21 +38,21 @@ describe Vagt::PropertyValidations do
   test "name blacklisted" do
     e = V.call(build_user("Admin")) || fail
 
-    assert e["name"].as(PropertyNode).errors.map(&.name) == ["blacklist"]
+    assert e["name"].map(&.name) == ["blacklist"]
     assert !e.has_key?("age")
   end
 
   test "name format invalid" do
     e = V.call(build_user("t0b1")) || fail
 
-    assert e["name"].as(PropertyNode).errors.map(&.name) == ["format"]
+    assert e["name"].map(&.name) == ["format"]
     assert !e.has_key?("age")
   end
 
   test "name size invalid" do
     e = V.call(build_user("T")) || fail
 
-    assert e["name"].as(PropertyNode).errors.map(&.name) == ["size"]
+    assert e["name"].map(&.name) == ["size"]
     assert !e.has_key?("age")
   end
 
@@ -60,6 +60,6 @@ describe Vagt::PropertyValidations do
     e = V.call(build_user(age: -1)) || fail
 
     assert !e.has_key?("name")
-    assert e["age"].as(PropertyNode).errors.map(&.name) == ["range"]
+    assert e["age"].map(&.name) == ["range"]
   end
 end

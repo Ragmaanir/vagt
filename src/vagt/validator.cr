@@ -1,50 +1,66 @@
-# require "./violation"
-# require "./validation_result"
 require "./errors"
+require "./value_validator"
 require "./validated"
 
 module Vagt::Validator(T)
   annotation ValidatorMethod
   end
 
+  NO_OPTIONS = "No validation options specified. If you want to ignore a field, use the 'ignore' macro."
+
+  macro ignore(prop)
+    @[ValidatorMethod(field: "{{prop.id}}")]
+    def validate_{{prop.id}}(object : T) : Array(Vagt::Error)?
+    end
+  end
+
   macro validate_array(prop, **options)
     @[ValidatorMethod(field: "{{prop.id}}")]
-    def validate_array{{prop.id}}(object : T) : Vagt::ArrayNode?
+    def validate_array_{{prop.id}}(object : T) : Array(Vagt::Error)?
       {% begin %}
-        value = object.{{prop.id}}
+        array = object.{{prop.id}}
 
         {% name, type, opts = T::FIELDS[prop.id.stringify] %}
 
-        res = [] of Vagt::Error
-
-        nested = {} of Int32 => Vagt::Node
+        nested = {} of Int32 => (Vagt::ObjectError | Array(Vagt::Error))
 
         {% nested_type = type.resolve.type_vars.first %}
 
-        {% if w = options[:with] %}
-          val = {{w}}.new
-        {% elsif nested_type < Vagt::Validated %}
-          val = value.class.default_validator.new
-        {% elsif nested_type == String || nested_type < Number %}
-          # TODO: shortcuts
+        # TODO: compile time error when invalid options passed
+        {% if [String, Bool].includes?(nested_type) || nested_type < Number %}
+          array.each_with_index do |value, i|
+            errors = [] of Vagt::Error
+
+            {% for k, val in options %}
+              errors += Vagt::DEFAULT_VALIDATORS[:{{k}}].call({{val}}, value)
+            {% end %}
+
+            nested[i] = errors if errors.any?
+          end
         {% else %}
-          {% raise "#{T}.validate_array needs a validator or the validated type needs a default validator" %}
+          {% if w = options[:with] %}
+            val = {{w}}.new
+          {% elsif nested_type < Vagt::Validated %}
+            val = {{nested_type}}.default_validator.new
+          {% else %}
+            {% raise "#{T}.validate_array needs a validator or the validated type needs a default validator" %}
+          {% end %}
+
+          array.each_with_index do |value, i|
+            if errors = val.call(value)
+              nested[i] = errors
+            end
+          end
         {% end %}
 
-        # value.each_with_index do |e, i|
-        #   if errors = val.call(value)
-        #     nested[i] = errors
-        #   end
-        # end
-
-        return Vagt::ArrayNode.new(res, nested) if res.any? || nested.any?
+        return [Vagt::ArrayError.new(nested)] of Vagt::Error if nested.any?
       {% end %}
     end
   end
 
   macro validate_association(prop, **options)
     @[ValidatorMethod(field: "{{prop.id}}")]
-    def validate_association_{{prop.id}}(object : T) : Vagt::ObjectNode?
+    def validate_association_{{prop.id}}(object : T) : Array(Vagt::Error)?
       {% name, type, opts = T::FIELDS[prop.id.stringify] %}
 
       {% if type.is_a?(Union) && type.types.any? { |t| t < Vagt::Validated } %}
@@ -63,56 +79,30 @@ module Vagt::Validator(T)
         val = value.class.default_validator.new
       {% end %}
 
-      val.call(value)
+      err = val.call(value)
+      [err] of Vagt::Error if err
     end
   end
 
   macro validate(prop, **options)
+    {% raise "#{@type}.#{prop}: " + NO_OPTIONS if options.empty? %}
+
     @[ValidatorMethod(field: "{{prop.id}}")]
-    def validate_{{prop.id}}(object : T) : Vagt::PropertyNode?
+    def validate_{{prop.id}}(object : T) : Array(Vagt::Error)?
       {% begin %}
         value = object.{{prop.id}}
 
-        {% name, type, opts = T::FIELDS[prop.id.stringify] %}
+        {% name, type, opts = T::FIELDS[prop.id.stringify] || raise("Field not found: #{prop}") %}
 
         res = [] of Vagt::Error
 
-        {% if fmt = options[:format] %}
-          {% raise "#{prop} format option requires regex" if !fmt.is_a?(RegexLiteral) %}
-          {% raise "#{prop} format option requires String, got #{type}" if !type == String %}
-
-          res << Vagt::Error.new(value, "format") if !{{fmt}}.matches?(value)
-        {% end %}
-
-        {% if size = options[:size] %}
-          size = ({{size}})
-
-          {% if size.is_a?(ProcLiteral) %}
-            res << Vagt::Error.new(value, "size") if !size.call(value.size)
-          {% elsif size.is_a?(RangeLiteral) || size.is_a?(ArrayLiteral) || size.is_a?(Expressions) %}
-            res << Vagt::Error.new(value, "size") if !size.includes?(value.size)
-          {% else %}
-            {% raise "#{@type}: Invalid size option: #{size} (#{size.class_name})" %}
-          {% end %}
-        {% end %}
-
-        {% if range = options[:range] %}
-          res << Vagt::Error.new(value, "range") if !({{range}}).includes?(value)
-        {% end %}
-
-        {% if l = options[:blacklist] %}
-          l = ({{l}})
-
-          {% if l.is_a?(ProcLiteral) %}
-            res << Vagt::Error.new(value, "blacklist") if l.call(value)
-          {% else %}
-            res << Vagt::Error.new(value, "blacklist") if l.includes?(value)
-          {% end %}
+        {% for k, val in options %}
+          res += Vagt::DEFAULT_VALIDATORS[:{{k}}].call({{val}}, value)
         {% end %}
 
         # puts "#{object.class}: validate {{prop.id}} => #{res.size}"
 
-        return Vagt::PropertyNode.new(res) if res.any?
+        return res if res.any?
       {% end %}
     end
   end
@@ -121,33 +111,34 @@ module Vagt::Validator(T)
     {% verbatim do %}
       macro finished
         {% verbatim do %}
-          def self.call(o : T) : Vagt::ObjectNode?
+          def self.call(o : T)
             new.call(o)
           end
 
-          def call(o : T) : Vagt::ObjectNode?
+          def call(o : T) : Vagt::ObjectError?
             {% begin %}
               {%
                 field_names = T::FIELDS.map { |k, v| v[0] }
                 validator_methods = @type.methods.select { |m| m.annotation(ValidatorMethod) }
-                # validations = @type.methods.select { |m| {m, m.annotation(ValidatorMethod)} }
                 validated_fields = validator_methods.map { |m| m.annotation(ValidatorMethod)[:field].id }
-                # validated = vms.map { |m| m.name.gsub(/\Avalidate_/, "") }
                 unvalidated = field_names - validated_fields
                 raise "#{@type}: Missing validation for fields: #{unvalidated.splat}" unless unvalidated.empty?
               %}
 
-              res = Hash(String, Vagt::Node).new
+              res = Hash(String, Array(Vagt::Error)).new
 
               {% for m in validator_methods %}
                 {% ann = m.annotation(ValidatorMethod) %}
                 r = {{m.name}}(o)
 
                 field = {{ann[:field]}}
-                res[field] = r if r
+                if r
+                  res[field] ||= [] of Vagt::Error
+                  res[field] += r
+                end
               {% end %}
 
-              Vagt::ObjectNode.new([] of Vagt::Error, res) if res.any?
+              Vagt::ObjectError.new(res) if res.any?
             {% end %}
           end
         {% end %}

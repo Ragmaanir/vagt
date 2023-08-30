@@ -1,8 +1,11 @@
 
 - 🚩 Validation
+  - 🟡🧠 Passing a constant as validate options does not work. How to fix this and make it more flexible?
   - 🟢 Object property validation
   - 🟡🧠 schema-block is problematic for e.g. JSON annotations. Is it needed?
   - 🟡🧠 Change Hash to NamedTuple?
+  - 🟢🧠 How to validate: Array(String) with format?
+    - 🟢 Macro `validate_array`
   - 🟡 Predefined validations
     - 🟡🧠 How to unify `range/min/max/gt/gte/lt/lte/eq`
     - 🟡 `size` (range, array, gt/gte/lt/lte, proc)
@@ -16,8 +19,11 @@
     - 🟡 Groups
   - 🟡 Nested objects validation
     - 🟡🧠 Default validator? Specify validator for each property? Array(T)?
-    - 🟡 validated objects
-    - 🟡 stdlib objects: Enumerable
+    - 🟢 Default validator
+    - 🟢 simple associated object validation: `getter item : Item`
+    - 🟡 enumerables: `getter items : Array(Item)`
   - 🟡 Cross-property validations
   - 🟡 Custom proc/block validation
-  - 🟡 Violation attributes
+  - 🟡 Error attributes
+  - 🟡 Ignore fields
+  - 🟡 Detect cyclic references
